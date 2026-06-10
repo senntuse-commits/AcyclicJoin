@@ -1,0 +1,107 @@
+enclave {
+    from "sgx_tstdc.edl" import *;
+    from "sgx_pthread.edl" import *;
+
+    trusted {
+        public sgx_status_t empty_ecall(int threads);
+
+        public sgx_status_t AcyclicJoinRun(
+            int threads,
+            int mode,
+            [in, count=flat_len] int* tables_flat,
+            int flat_len,
+            [in, count=table_count] int* table_offsets,
+            [in, count=table_count] int* table_rows,
+            [in, count=table_count] int* table_cols,
+            int table_count,
+            [in, count=table_count] int* parent,
+            int root,
+            [in, count=table_count] int* join_col_parent,
+            [in, count=table_count] int* join_col_child,
+            [in, count=table_count] int* table_keys,
+            int tau_or_out_size,
+            int materialize_padding,
+            double do_epsilon,
+            double do_delta,
+            [out, count=max_size] int* result,
+            int max_size,
+            [out] int* ret_rows,
+            [out] int* ret_cols
+        );
+
+        public sgx_status_t AcyclicJoinRunSummary(
+            int threads,
+            int mode,
+            [in, count=flat_len] int* tables_flat,
+            int flat_len,
+            [in, count=table_count] int* table_offsets,
+            [in, count=table_count] int* table_rows,
+            [in, count=table_count] int* table_cols,
+            int table_count,
+            [in, count=table_count] int* parent,
+            int root,
+            [in, count=table_count] int* join_col_parent,
+            [in, count=table_count] int* join_col_child,
+            [in, count=table_count] int* table_keys,
+            int tau_or_out_size,
+            int materialize_padding,
+            double do_epsilon,
+            double do_delta,
+            [out] int* ret_rows,
+            [out] int* ret_cols
+        );
+
+        public sgx_status_t AcyclicJoinRunProfile(
+            int threads,
+            int mode,
+            [in, count=flat_len] int* tables_flat,
+            int flat_len,
+            [in, count=table_count] int* table_offsets,
+            [in, count=table_count] int* table_rows,
+            [in, count=table_count] int* table_cols,
+            int table_count,
+            [in, count=table_count] int* parent,
+            int root,
+            [in, count=table_count] int* join_col_parent,
+            [in, count=table_count] int* join_col_child,
+            [in, count=table_count] int* table_keys,
+            int tau_or_out_size,
+            int materialize_padding,
+            double do_epsilon,
+            double do_delta,
+            [out] int* ret_rows,
+            [out] int* ret_cols,
+            [out, count=stage_count] double* stage_ms,
+            int stage_count
+        );
+
+        public sgx_status_t AcyclicJoinRunStageSummary(
+            int threads,
+            int mode,
+            [in, count=flat_len] int* tables_flat,
+            int flat_len,
+            [in, count=table_count] int* table_offsets,
+            [in, count=table_count] int* table_rows,
+            [in, count=table_count] int* table_cols,
+            int table_count,
+            [in, count=table_count] int* parent,
+            int root,
+            [in, count=table_count] int* join_col_parent,
+            [in, count=table_count] int* join_col_child,
+            [in, count=table_count] int* table_keys,
+            int tau_or_out_size,
+            int materialize_padding,
+            double do_epsilon,
+            double do_delta,
+            [out] int* ret_rows,
+            [out] int* ret_cols,
+            [out, count=stage_count] double* stage_ms,
+            int stage_count
+        );
+    };
+
+    untrusted {
+        void ocall_print([in, string] const char* s);
+        void ocall_now_ms([out] double* out_ms);
+    };
+};

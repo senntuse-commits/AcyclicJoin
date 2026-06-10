@@ -1,0 +1,11 @@
+enclave.so
+{
+    global:
+        g_global_data;
+        g_global_data_size;
+        enclave_entry;
+        g_peak_heap_used;
+        g_peak_rsrv_mem_committed;
+    local:
+        *;
+};
