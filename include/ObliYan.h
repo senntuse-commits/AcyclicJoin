@@ -17,15 +17,15 @@ Table MultiNumber(Table R, int keyCol);
 
 Table Expand(const Table &R, int tau);
 
-Table RelaxedTwoWay(const Table &R, const Table &S, int joinColR, int joinColS, int tau);
+Table ObliYanTwoWay(const Table &R, const Table &S, int joinColR, int joinColS, int tau);
 
-Table RelaxedJoin(vector<Table> tables,
+Table ObliYan(vector<Table> tables,
                   const vector<int> &parent,
                   int root,
                   const vector<int> &joinColInParent,
                   const vector<int> &joinColInChild,
                   int tau);
 
-double getLastRelaxedUpFilterMs();
-double getLastRelaxedDownFilterMs();
-double getLastRelaxedJoinMs();
+double getLastObliYanUpFilterMs();
+double getLastObliYanDownFilterMs();
+double getLastObliYanJoinMs();

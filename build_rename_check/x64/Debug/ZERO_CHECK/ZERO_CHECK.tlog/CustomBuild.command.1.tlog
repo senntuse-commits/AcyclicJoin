@@ -1,0 +1,10 @@
+^D:\PAPERTEST\ACYCLICJOIN\BUILD_RENAME_CHECK\CMAKEFILES\EDEA559CDC0BA6ECE2DE300B207C420E\GENERATE.STAMP.RULE
+setlocal
+D:\Scoop\apps\cmake\3.31.5\bin\cmake.exe -SD:/PaperTest/AcyclicJoin -BD:/PaperTest/AcyclicJoin/build_rename_check --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/PaperTest/AcyclicJoin/build_rename_check/acyclic_join_sgx.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

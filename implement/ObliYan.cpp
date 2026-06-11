@@ -1,4 +1,4 @@
-#include "../include/RelaxedJoin.h"
+#include "../include/ObliYan.h"
 #include "../include/BitonicSort.h"
 #include "../include/ORcompact.h"
 #include "../include/PrimitiveProfile.h"
@@ -25,11 +25,11 @@
 namespace
 {
 const int DO_DUMMY_VALUE = 100000007;
-double g_lastRelaxedUpFilterMs = 0.0;
-double g_lastRelaxedDownFilterMs = 0.0;
-double g_lastRelaxedJoinMs = 0.0;
+double g_lastObliYanUpFilterMs = 0.0;
+double g_lastObliYanDownFilterMs = 0.0;
+double g_lastObliYanJoinMs = 0.0;
 
-struct RelaxedTwoWayTiming
+struct ObliYanTwoWayTiming
 {
     double augment = 0.0;
     double expand = 0.0;
@@ -81,7 +81,7 @@ vector<int> bottomUpOrder(const vector<vector<int>> &children, int root)
 }
 
 // The top-down pass visits parents before their children.
-vector<int> topDownOrder(const vector<vector<int>> &children, int root)
+vector<int> downOrder(const vector<vector<int>> &children, int root)
 {
         vector<int> order;
         queue<int> q;
@@ -141,7 +141,7 @@ Table compactKeepingFirst(const Table &table, int keep)
     return compacted;
 }
 
-// RelaxedJoin merges children in bottom-up order, while JoinByObliViator exposes
+// ObliYan merges children in bottom-up order, while ParYanJoin exposes
 // columns in BFS table order. Reorder only columns, not rows, before returning.
 Table reorderColumnsByTableOrder(const Table &table,
                                   const vector<int> &currentTableOrder,
@@ -178,7 +178,7 @@ Table reorderColumnsByTableOrder(const Table &table,
     return out;
 }
 
-bool debugRelaxedJoin()
+bool debugObliYan()
 {
 #ifdef SGX_ENCLAVE_BUILD
     return false;
@@ -190,7 +190,7 @@ bool debugRelaxedJoin()
 
 void debugPrintTable(const string &name, const Table &table, int limit = 12)
 {
-    if (!debugRelaxedJoin())
+    if (!debugObliYan())
         return;
 
     int realRows = 0;
@@ -239,7 +239,7 @@ double elapsedMs(chrono::high_resolution_clock::time_point start,
 }
 #endif
 
-void printRelaxedTwoWayTiming(int p, int c, const RelaxedTwoWayTiming &timing)
+void printObliYanTwoWayTiming(int p, int c, const ObliYanTwoWayTiming &timing)
 {
 #ifdef SGX_ENCLAVE_BUILD
     (void)p;
@@ -247,7 +247,7 @@ void printRelaxedTwoWayTiming(int p, int c, const RelaxedTwoWayTiming &timing)
     (void)timing;
 #else
     cout << fixed << setprecision(1)
-         << "  [RelaxedJoin p=" << p << "->c=" << c << "]"
+         << "  [ObliYan p=" << p << "->c=" << c << "]"
          << " augment=" << timing.augment << " ms"
          << "  expand=" << timing.expand << " ms"
          << "  multiNumber=" << timing.multiNumber << " ms"
@@ -258,13 +258,13 @@ void printRelaxedTwoWayTiming(int p, int c, const RelaxedTwoWayTiming &timing)
 #endif
 }
 
-void printRelaxedTwoWayTotal(const RelaxedTwoWayTiming &total)
+void printObliYanTwoWayTotal(const ObliYanTwoWayTiming &total)
 {
 #ifdef SGX_ENCLAVE_BUILD
     (void)total;
 #else
     cout << fixed << setprecision(1)
-         << "  [RelaxedJoin TOTAL]"
+         << "  [ObliYan TOTAL]"
          << " augment=" << total.augment << " ms"
          << "  expand=" << total.expand << " ms"
          << "  multiNumber=" << total.multiNumber << " ms"
@@ -277,19 +277,19 @@ void printRelaxedTwoWayTotal(const RelaxedTwoWayTiming &total)
 
 }
 
-double getLastRelaxedUpFilterMs()
+double getLastObliYanUpFilterMs()
 {
-    return g_lastRelaxedUpFilterMs;
+    return g_lastObliYanUpFilterMs;
 }
 
-double getLastRelaxedDownFilterMs()
+double getLastObliYanDownFilterMs()
 {
-    return g_lastRelaxedDownFilterMs;
+    return g_lastObliYanDownFilterMs;
 }
 
-double getLastRelaxedJoinMs()
+double getLastObliYanJoinMs()
 {
-    return g_lastRelaxedJoinMs;
+    return g_lastObliYanJoinMs;
 }
 
 // Algorithm 10: keep each R tuple only if its join key appears in S.
@@ -664,7 +664,7 @@ Table Expand(const Table &R, int tau)
     }
 
     Table expanded = compactKeepingFirst(L, tau);
-    if (debugRelaxedJoin())
+    if (debugObliYan())
         cerr << "[Expand] inputReal=" << countRealRows(R)
              << " totalWeight=" << totalWeight
              << " beforeCompactReal=" << countRealRows(L)
@@ -674,15 +674,15 @@ Table Expand(const Table &R, int tau)
 
 // Algorithm 16: execute the paper's preparation steps, then materialize the
 // two-way join result for the serial test implementation.
-Table RelaxedTwoWayTimed(const Table &R,
+Table ObliYanTwoWayTimed(const Table &R,
                          const Table &S,
                          int joinColR,
                          int joinColS,
                          int tau,
-                         RelaxedTwoWayTiming *timing)
+                         ObliYanTwoWayTiming *timing)
 {
     if (timing != nullptr)
-        *timing = RelaxedTwoWayTiming{};
+        *timing = ObliYanTwoWayTiming{};
 #ifndef SGX_ENCLAVE_BUILD
     auto t0 = chrono::high_resolution_clock::now();
 #endif
@@ -777,27 +777,27 @@ Table RelaxedTwoWayTimed(const Table &R,
     return L;
 }
 
-Table RelaxedTwoWay(const Table &R, const Table &S, int joinColR, int joinColS, int tau)
+Table ObliYanTwoWay(const Table &R, const Table &S, int joinColR, int joinColS, int tau)
 {
-    return RelaxedTwoWayTimed(R, S, joinColR, joinColS, tau, nullptr);
+    return ObliYanTwoWayTimed(R, S, joinColR, joinColS, tau, nullptr);
 }
 
 // Algorithm 17, lines 6-14: bottom-up semi-join, top-down semi-join,
-// then bottom-up RelaxedTwoWay joins until the root holds the final result.
-Table RelaxedJoin(vector<Table> tables,
+// then bottom-up ObliYanTwoWay joins until the root holds the final result.
+Table ObliYan(vector<Table> tables,
                   const vector<int> &parent,
                   int root,
                   const vector<int> &joinColInParent,
                   const vector<int> &joinColInChild,
                   int tau)
 {
-    g_lastRelaxedUpFilterMs = 0.0;
-    g_lastRelaxedDownFilterMs = 0.0;
-    g_lastRelaxedJoinMs = 0.0;
+    g_lastObliYanUpFilterMs = 0.0;
+    g_lastObliYanDownFilterMs = 0.0;
+    g_lastObliYanJoinMs = 0.0;
     double sgxTotalStart = sgxProfileNowMs();
 #ifndef SGX_ENCLAVE_BUILD
     auto totalStart = chrono::high_resolution_clock::now();
-    cout << "  [RelaxedJoin] start: tables=" << tables.size()
+    cout << "  [ObliYan] start: tables=" << tables.size()
          << " tau=" << tau << "\n"
          << flush;
 #endif
@@ -811,12 +811,12 @@ Table RelaxedJoin(vector<Table> tables,
 
     vector<vector<int>> children = buildChildren(parent);
     vector<int> bu = bottomUpOrder(children, root);
-    vector<int> bfs = topDownOrder(children, root);
+    vector<int> bfs = downOrder(children, root);
     vector<vector<int>> tableOrder(tables.size());
     for (int i = 0; i < (int)tables.size(); ++i)
         tableOrder[i] = {i};
 
-    setPrimitiveProfilePhase(PrimitivePhaseRelaxedUpFilter);
+    setPrimitiveProfilePhase(PrimitivePhaseObliYanUpFilter);
     for (int u : bu)
     {
         if (u == root)
@@ -827,13 +827,13 @@ Table RelaxedJoin(vector<Table> tables,
     double sgxBottomUpEnd = sgxProfileNowMs();
 #ifndef SGX_ENCLAVE_BUILD
     auto bottomUpEnd = chrono::high_resolution_clock::now();
-    cout << "  [RelaxedJoin] bottom-up semijoin done. elapsed="
+    cout << "  [ObliYan] bottom-up semijoin done. elapsed="
          << elapsedMs(totalStart, bottomUpEnd) << " ms\n"
          << flush;
 #endif
 
-    setPrimitiveProfilePhase(PrimitivePhaseRelaxedDownFilter);
-    vector<int> td = topDownOrder(children, root);
+    setPrimitiveProfilePhase(PrimitivePhaseObliYanDownFilter);
+    vector<int> td = downOrder(children, root);
     for (int u : td)
     {
         if (children[u].empty())
@@ -841,17 +841,17 @@ Table RelaxedJoin(vector<Table> tables,
         for (int v : children[u])
             tables[v] = SemiJoin(tables[v], tables[u], joinColInChild[v], joinColInParent[v]);
     }
-    double sgxTopDownEnd = sgxProfileNowMs();
+    double sgxObliYanDownEnd = sgxProfileNowMs();
 #ifndef SGX_ENCLAVE_BUILD
-    auto topDownEnd = chrono::high_resolution_clock::now();
-    cout << "  [RelaxedJoin] top-down semijoin done. stage="
-         << elapsedMs(bottomUpEnd, topDownEnd) << " ms  elapsed="
-         << elapsedMs(totalStart, topDownEnd) << " ms\n"
+    auto downEnd = chrono::high_resolution_clock::now();
+    cout << "  [ObliYan] top-down semijoin done. stage="
+         << elapsedMs(bottomUpEnd, downEnd) << " ms  elapsed="
+         << elapsedMs(totalStart, downEnd) << " ms\n"
          << flush;
 #endif
 
-    setPrimitiveProfilePhase(PrimitivePhaseRelaxedJoin);
-    RelaxedTwoWayTiming relaxedTotal;
+    setPrimitiveProfilePhase(PrimitivePhaseObliYanJoin);
+    ObliYanTwoWayTiming obliYanTotal;
     int edgeIndex = 0;
     int edgeCount = 0;
     for (int u : bu)
@@ -867,7 +867,7 @@ Table RelaxedJoin(vector<Table> tables,
         ++edgeIndex;
 #ifndef SGX_ENCLAVE_BUILD
         auto edgeStart = chrono::high_resolution_clock::now();
-        cout << "  [RelaxedJoin] RelaxedTwoWay edge " << edgeIndex << "/" << edgeCount
+        cout << "  [ObliYan] ObliYanTwoWay edge " << edgeIndex << "/" << edgeCount
              << " p=" << p << " c=" << u
              << " parentRows=" << tables[p].size()
              << " childRows=" << tables[u].size()
@@ -876,47 +876,47 @@ Table RelaxedJoin(vector<Table> tables,
              << "\n"
              << flush;
 #endif
-        if (debugRelaxedJoin())
-            cerr << "[RelaxedJoin edge " << p << "->" << u << "] before: parentReal="
+        if (debugObliYan())
+            cerr << "[ObliYan edge " << p << "->" << u << "] before: parentReal="
                  << countRealRows(tables[p]) << " childReal=" << countRealRows(tables[u]) << "\n";
-        RelaxedTwoWayTiming edgeTiming;
+        ObliYanTwoWayTiming edgeTiming;
         int parentInputRows = (int)tables[p].size();
         int childInputRows = (int)tables[u].size();
-        tables[p] = RelaxedTwoWayTimed(tables[p], tables[u], joinColInParent[u], joinColInChild[u], tau, &edgeTiming);
+        tables[p] = ObliYanTwoWayTimed(tables[p], tables[u], joinColInParent[u], joinColInChild[u], tau, &edgeTiming);
         if (sgxProfileEnabled())
         {
             char buf[240];
             snprintf(buf, sizeof(buf),
-                     "  [RelaxedJoin edge p=%d c=%d] inputRows=%d,%d tau=%d resultRows=%d cols=%d",
+                     "  [ObliYan edge p=%d c=%d] inputRows=%d,%d tau=%d resultRows=%d cols=%d",
                      p, u, parentInputRows, childInputRows, tau,
                      (int)tables[p].size(), tables[p].empty() ? 0 : (int)tables[p][0].size());
             sgxProfilePrint(buf);
         }
-        relaxedTotal.augment += edgeTiming.augment;
-        relaxedTotal.expand += edgeTiming.expand;
-        relaxedTotal.multiNumber += edgeTiming.multiNumber;
-        relaxedTotal.sortAlign += edgeTiming.sortAlign;
-        relaxedTotal.result += edgeTiming.result;
-        printRelaxedTwoWayTiming(p, u, edgeTiming);
+        obliYanTotal.augment += edgeTiming.augment;
+        obliYanTotal.expand += edgeTiming.expand;
+        obliYanTotal.multiNumber += edgeTiming.multiNumber;
+        obliYanTotal.sortAlign += edgeTiming.sortAlign;
+        obliYanTotal.result += edgeTiming.result;
+        printObliYanTwoWayTiming(p, u, edgeTiming);
 #ifndef SGX_ENCLAVE_BUILD
         auto edgeEnd = chrono::high_resolution_clock::now();
-        cout << "  [RelaxedJoin] RelaxedTwoWay edge " << edgeIndex << "/" << edgeCount
+        cout << "  [ObliYan] ObliYanTwoWay edge " << edgeIndex << "/" << edgeCount
              << " done. resultRows=" << tables[p].size()
              << " resultReal=" << countRealRows(tables[p])
              << " stage=" << elapsedMs(edgeStart, edgeEnd) << " ms  elapsed="
              << elapsedMs(totalStart, edgeEnd) << " ms\n"
              << flush;
 #endif
-        if (debugRelaxedJoin())
-            cerr << "[RelaxedJoin edge " << p << "->" << u << "] after: parentReal="
+        if (debugObliYan())
+            cerr << "[ObliYan edge " << p << "->" << u << "] after: parentReal="
                  << countRealRows(tables[p]) << "\n";
         tableOrder[p].insert(tableOrder[p].end(), tableOrder[u].begin(), tableOrder[u].end());
     }
     double sgxJoinEnd = sgxProfileNowMs();
 #ifndef SGX_ENCLAVE_BUILD
-    auto relaxedTwoWayEnd = chrono::high_resolution_clock::now();
+    auto obliYanTwoWayEnd = chrono::high_resolution_clock::now();
 #endif
-    printRelaxedTwoWayTotal(relaxedTotal);
+    printObliYanTwoWayTotal(obliYanTotal);
 
     Table result = reorderColumnsByTableOrder(tables[root], tableOrder[root], bfs, tableWidths);
     Table compacted;
@@ -939,28 +939,28 @@ Table RelaxedJoin(vector<Table> tables,
     setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
     if (sgxCompactEnd > 0.0 && sgxTotalStart > 0.0)
     {
-        g_lastRelaxedUpFilterMs = sgxBottomUpEnd - sgxTotalStart;
-        g_lastRelaxedDownFilterMs = sgxTopDownEnd - sgxBottomUpEnd;
-        g_lastRelaxedJoinMs = sgxCompactEnd - sgxTopDownEnd;
+        g_lastObliYanUpFilterMs = sgxBottomUpEnd - sgxTotalStart;
+        g_lastObliYanDownFilterMs = sgxObliYanDownEnd - sgxBottomUpEnd;
+        g_lastObliYanJoinMs = sgxCompactEnd - sgxObliYanDownEnd;
     }
 #ifndef SGX_ENCLAVE_BUILD
     auto compactEnd = chrono::high_resolution_clock::now();
-    cout << "  [RelaxedJoin] final compact done. resultRows=" << compacted.size()
-         << " stage=" << elapsedMs(relaxedTwoWayEnd, compactEnd)
+    cout << "  [ObliYan] final compact done. resultRows=" << compacted.size()
+         << " stage=" << elapsedMs(obliYanTwoWayEnd, compactEnd)
          << " ms  elapsed=" << elapsedMs(totalStart, compactEnd) << " ms\n"
          << flush;
 
     double msBottomUpSemi = elapsedMs(totalStart, bottomUpEnd);
-    double msTopDownSemi = elapsedMs(bottomUpEnd, topDownEnd);
-    double msRelaxedTwoWay = elapsedMs(topDownEnd, relaxedTwoWayEnd);
-    double msCompact = elapsedMs(relaxedTwoWayEnd, compactEnd);
+    double msObliYanDownSemi = elapsedMs(bottomUpEnd, downEnd);
+    double msObliYanTwoWay = elapsedMs(downEnd, obliYanTwoWayEnd);
+    double msCompact = elapsedMs(obliYanTwoWayEnd, compactEnd);
     double msTotal = elapsedMs(totalStart, compactEnd);
-    g_lastRelaxedUpFilterMs = msBottomUpSemi;
-    g_lastRelaxedDownFilterMs = msTopDownSemi;
-    g_lastRelaxedJoinMs = msRelaxedTwoWay + msCompact;
-    cout << "  [RelaxedJoin detail] bottomUpSemi=" << msBottomUpSemi
-         << " ms  topDownSemi=" << msTopDownSemi
-         << " ms  relaxedTwoWay=" << msRelaxedTwoWay
+    g_lastObliYanUpFilterMs = msBottomUpSemi;
+    g_lastObliYanDownFilterMs = msObliYanDownSemi;
+    g_lastObliYanJoinMs = msObliYanTwoWay + msCompact;
+    cout << "  [ObliYan detail] bottomUpSemi=" << msBottomUpSemi
+         << " ms  ObliYanDownSemi=" << msObliYanDownSemi
+         << " ms  ObliYanTwoWay=" << msObliYanTwoWay
          << " ms  compact=" << msCompact
          << " ms  total=" << msTotal << " ms\n";
 #endif

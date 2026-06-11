@@ -26,8 +26,8 @@ namespace
 // Internal mode ids. The README maps these flags to the report names:
 // -JFYan -> JFYan, -ParYan -> ParYan, -ObliYan -> ObliYan.
 constexpr int ModeOurs = 0;
-constexpr int ModeObliViator = 1;
-constexpr int ModeRelaxed = 2;
+constexpr int ModeParYan = 1;
+constexpr int ModeObliYan = 2;
 
 // Stage indices must stay in sync with Enclave/Enclave.cpp so the app can
 // print human-readable names for enclave-side timing arrays.
@@ -37,17 +37,17 @@ constexpr int PrimitivePhaseCount = 9;
 constexpr int ProfileStageCount = StagePrimitivePhaseBase + PrimitiveKindCount * PrimitivePhaseCount;
 constexpr int StageOursUpFilter = 10;
 constexpr int StageOursRootExpand = 11;
-constexpr int StageOursTopDown = 12;
-constexpr int StageOblivUpFilter = 13;
-constexpr int StageOblivDownFilter = 14;
-constexpr int StageOblivJoin = 15;
+constexpr int StageJFYanDown = 12;
+constexpr int StageParYanUpFilter = 13;
+constexpr int StageParYanDownFilter = 14;
+constexpr int StageParYanJoin = 15;
 constexpr int StagePrimitiveSort = 16;
 constexpr int StagePrimitiveExpand = 17;
 constexpr int StagePrimitiveCompact = 18;
 constexpr int StagePrimitiveAggtree = 19;
-constexpr int StageRelaxedUpFilter = 20;
-constexpr int StageRelaxedDownFilter = 21;
-constexpr int StageRelaxedJoin = 22;
+constexpr int StageObliYanUpFilter = 20;
+constexpr int StageObliYanDownFilter = 21;
+constexpr int StageObliYanJoin = 22;
 
 int globalThreadCount = 16;
 
@@ -63,9 +63,9 @@ const char *modeName(int mode)
     {
     case ModeOurs:
         return "JFYan";
-    case ModeObliViator:
+    case ModeParYan:
         return "ParYan";
-    case ModeRelaxed:
+    case ModeObliYan:
         return "ObliYan";
     default:
         return "unknown";
@@ -98,15 +98,15 @@ const char *sgxStatusName(sgx_status_t status)
 const char *primitivePhaseName(int phase)
 {
     static const char *names[PrimitivePhaseCount] = {
-        "oursUp",
-        "oursRootExpand",
-        "oursDown",
-        "oblivUp",
-        "oblivDown",
-        "oblivJoin",
-        "relaxedUp",
-        "relaxedDown",
-        "relaxedJoin",
+        "JFYanUp",
+        "JFYanRootExpand",
+        "JFYanDown",
+        "ParYanUp",
+        "ParYanDown",
+        "ParYanJoin",
+        "ObliYanUp",
+        "ObliYanDown",
+        "ObliYan",
     };
     return (phase >= 0 && phase < PrimitivePhaseCount) ? names[phase] : "unknownPhase";
 }
@@ -176,10 +176,10 @@ const char *stageName(int mode, int idx)
         return "setupCopy";
     case 3:
         return mode == ModeOurs ? "bottomUpSemiJoin" :
-               mode == ModeObliViator ? "TwoPhaseFilter" : "RelaxedJoin";
+               mode == ModeParYan ? "ParYanFilter" : "ObliYan";
     case 4:
-        return mode == ModeOurs ? "topDown" :
-               mode == ModeObliViator ? "JoinByObliViator" : "unused";
+        return mode == ModeOurs ? "JFYanDown" :
+               mode == ModeParYan ? "ParYanJoin" : "unused";
     case 5:
         return "summarize";
     case 6:
@@ -194,14 +194,14 @@ const char *stageName(int mode, int idx)
         return "oursUpFilter";
     case StageOursRootExpand:
         return "oursRootExpand";
-    case StageOursTopDown:
-        return "oursTopDown";
-    case StageOblivUpFilter:
-        return "oblivUpFilter";
-    case StageOblivDownFilter:
-        return "oblivDownFilter";
-    case StageOblivJoin:
-        return "oblivJoin";
+    case StageJFYanDown:
+        return "JFYanDown";
+    case StageParYanUpFilter:
+        return "ParYanUpFilter";
+    case StageParYanDownFilter:
+        return "ParYanDownFilter";
+    case StageParYanJoin:
+        return "ParYanJoin";
     case StagePrimitiveSort:
         return "primitiveSort";
     case StagePrimitiveExpand:
@@ -210,12 +210,12 @@ const char *stageName(int mode, int idx)
         return "primitiveCompact";
     case StagePrimitiveAggtree:
         return "primitiveAggtree";
-    case StageRelaxedUpFilter:
-        return "relaxedUpFilter";
-    case StageRelaxedDownFilter:
-        return "relaxedDownFilter";
-    case StageRelaxedJoin:
-        return "relaxedJoin";
+    case StageObliYanUpFilter:
+        return "ObliYanUpFilter";
+    case StageObliYanDownFilter:
+        return "ObliYanDownFilter";
+    case StageObliYanJoin:
+        return "ObliYan";
     default:
         return "unknown";
     }
@@ -731,17 +731,17 @@ double oursFullCompareMs(const RunSummary &s)
 {
     return stageTime(s, StageOursUpFilter) +
            stageTime(s, StageOursRootExpand) +
-           stageTime(s, StageOursTopDown);
+           stageTime(s, StageJFYanDown);
 }
 
 double oursWithoutFirstUpMs(const RunSummary &s)
 {
-    return stageTime(s, StageOursRootExpand) + stageTime(s, StageOursTopDown);
+    return stageTime(s, StageOursRootExpand) + stageTime(s, StageJFYanDown);
 }
 
-double oblivWithoutFirstUpMs(const RunSummary &s)
+double parYanWithoutFirstUpMs(const RunSummary &s)
 {
-    return stageTime(s, StageOblivDownFilter) + stageTime(s, StageOblivJoin);
+    return stageTime(s, StageParYanDownFilter) + stageTime(s, StageParYanJoin);
 }
 
 int primitivePhaseStageIndex(int phase, int kind)
@@ -783,36 +783,36 @@ void printPrimitivePhaseSummaryForMode(const RunSummary &s, const char *prefix)
 {
     if (s.mode == ModeOurs)
     {
-        printPrimitivePhaseRow(s, prefix, "ours.upFilter", 0);
-        printPrimitiveCombinedPhaseRow(s, prefix, "ours.down", 1, 2);
+        printPrimitivePhaseRow(s, prefix, "JFYan.upFilter", 0);
+        printPrimitiveCombinedPhaseRow(s, prefix, "JFYan.down", 1, 2);
     }
-    else if (s.mode == ModeObliViator)
+    else if (s.mode == ModeParYan)
     {
-        printPrimitivePhaseRow(s, prefix, "obliv.upFilter", 3);
-        printPrimitivePhaseRow(s, prefix, "obliv.downFilter", 4);
-        printPrimitivePhaseRow(s, prefix, "obliv.join", 5);
+        printPrimitivePhaseRow(s, prefix, "ParYan.upFilter", 3);
+        printPrimitivePhaseRow(s, prefix, "ParYan.downFilter", 4);
+        printPrimitivePhaseRow(s, prefix, "ParYan.join", 5);
     }
-    else if (s.mode == ModeRelaxed)
+    else if (s.mode == ModeObliYan)
     {
-        printPrimitivePhaseRow(s, prefix, "relaxed.upFilter", 6);
-        printPrimitivePhaseRow(s, prefix, "relaxed.downFilter", 7);
-        printPrimitivePhaseRow(s, prefix, "relaxed.join", 8);
+        printPrimitivePhaseRow(s, prefix, "ObliYan.upFilter", 6);
+        printPrimitivePhaseRow(s, prefix, "ObliYan.downFilter", 7);
+        printPrimitivePhaseRow(s, prefix, "ObliYan.join", 8);
     }
 }
 
 void printComparisonSummary(const std::vector<RunSummary> &summaries, const char *prefix)
 {
     const RunSummary *ours = nullptr;
-    const RunSummary *obliv = nullptr;
-    const RunSummary *relaxed = nullptr;
+    const RunSummary *parYan = nullptr;
+    const RunSummary *obliYan = nullptr;
     for (const RunSummary &s : summaries)
     {
         if (s.mode == ModeOurs)
             ours = &s;
-        else if (s.mode == ModeObliViator)
-            obliv = &s;
-        else if (s.mode == ModeRelaxed)
-            relaxed = &s;
+        else if (s.mode == ModeParYan)
+            parYan = &s;
+        else if (s.mode == ModeObliYan)
+            obliYan = &s;
     }
     if (!ours)
         return;
@@ -826,72 +826,72 @@ void printComparisonSummary(const std::vector<RunSummary> &summaries, const char
               << " ms  down=" << oursNoFirstUp
               << " ms  full=" << oursFull << " ms\n";
 
-    if (obliv)
+    if (parYan)
     {
-        double oblivNoFirstUp = oblivWithoutFirstUpMs(*obliv);
-        std::cout << prefix << "ParYan: upFilter=" << stageTime(*obliv, StageOblivUpFilter)
-                  << " ms  downFilter=" << stageTime(*obliv, StageOblivDownFilter)
-                  << " ms  upJoin=" << stageTime(*obliv, StageOblivJoin)
-                  << " ms  compare=" << oblivNoFirstUp << " ms";
-        if (oursNoFirstUp > 0.0 && oblivNoFirstUp > 0.0)
-            std::cout << "  ratio=" << (oblivNoFirstUp / oursNoFirstUp) << "x";
+        double parYanNoFirstUp = parYanWithoutFirstUpMs(*parYan);
+        std::cout << prefix << "ParYan: upFilter=" << stageTime(*parYan, StageParYanUpFilter)
+                  << " ms  downFilter=" << stageTime(*parYan, StageParYanDownFilter)
+                  << " ms  upJoin=" << stageTime(*parYan, StageParYanJoin)
+                  << " ms  compare=" << parYanNoFirstUp << " ms";
+        if (oursNoFirstUp > 0.0 && parYanNoFirstUp > 0.0)
+            std::cout << "  ratio=" << (parYanNoFirstUp / oursNoFirstUp) << "x";
         std::cout << "\n";
     }
 
-    if (relaxed)
+    if (obliYan)
     {
-        double relaxedMs = joinOnlyMs(*relaxed);
-        std::cout << prefix << "ObliYan: upFilter=" << stageTime(*relaxed, StageRelaxedUpFilter)
-                  << " ms  downFilter=" << stageTime(*relaxed, StageRelaxedDownFilter)
-                  << " ms  join=" << stageTime(*relaxed, StageRelaxedJoin)
-                  << " ms  full=" << relaxedMs << " ms";
-        if (oursFull > 0.0 && relaxedMs > 0.0)
-            std::cout << "  ratio=" << (relaxedMs / oursFull) << "x";
+        double obliYanMs = joinOnlyMs(*obliYan);
+        std::cout << prefix << "ObliYan: upFilter=" << stageTime(*obliYan, StageObliYanUpFilter)
+                  << " ms  downFilter=" << stageTime(*obliYan, StageObliYanDownFilter)
+                  << " ms  join=" << stageTime(*obliYan, StageObliYanJoin)
+                  << " ms  full=" << obliYanMs << " ms";
+        if (oursFull > 0.0 && obliYanMs > 0.0)
+            std::cout << "  ratio=" << (obliYanMs / oursFull) << "x";
         std::cout << "\n";
     }
 
-    if (relaxed || obliv)
+    if (obliYan || parYan)
     {
         std::cout << prefix << "Ratios:";
-        if (relaxed && oursFull > 0.0)
+        if (obliYan && oursFull > 0.0)
         {
-            double relaxedMs = joinOnlyMs(*relaxed);
-            if (relaxedMs > 0.0)
-                std::cout << " ObliYan/JFYan=" << (relaxedMs / oursFull) << "x";
+            double obliYanMs = joinOnlyMs(*obliYan);
+            if (obliYanMs > 0.0)
+                std::cout << " ObliYan/JFYan=" << (obliYanMs / oursFull) << "x";
         }
-        if (relaxed && obliv)
+        if (obliYan && parYan)
         {
-            double relaxedMs = joinOnlyMs(*relaxed);
-            double oblivTotal = joinOnlyMs(*obliv);
-            if (relaxedMs > 0.0 && oblivTotal > 0.0)
-                std::cout << " ObliYan/ParYan(total)=" << (relaxedMs / oblivTotal) << "x";
+            double obliYanMs = joinOnlyMs(*obliYan);
+            double parYanTotal = joinOnlyMs(*parYan);
+            if (obliYanMs > 0.0 && parYanTotal > 0.0)
+                std::cout << " ObliYan/ParYan(total)=" << (obliYanMs / parYanTotal) << "x";
         }
-        if (obliv)
+        if (parYan)
         {
-            double oblivDownJoin = oblivWithoutFirstUpMs(*obliv);
-            if (oblivDownJoin > 0.0 && oursNoFirstUp > 0.0)
+            double parYanDownJoin = parYanWithoutFirstUpMs(*parYan);
+            if (parYanDownJoin > 0.0 && oursNoFirstUp > 0.0)
                 std::cout << " ParYan(down+join)/JFYan(down)="
-                          << (oblivDownJoin / oursNoFirstUp) << "x";
+                          << (parYanDownJoin / oursNoFirstUp) << "x";
         }
         std::cout << "\n";
     }
 
-    if (ours || obliv || relaxed)
+    if (ours || parYan || obliYan)
     {
         std::cout << prefix << "Primitive totals:\n";
         if (ours)
             printPrimitiveSummaryForMode(*ours, (std::string(prefix) + "  ").c_str());
-        if (obliv)
-            printPrimitiveSummaryForMode(*obliv, (std::string(prefix) + "  ").c_str());
-        if (relaxed)
-            printPrimitiveSummaryForMode(*relaxed, (std::string(prefix) + "  ").c_str());
+        if (parYan)
+            printPrimitiveSummaryForMode(*parYan, (std::string(prefix) + "  ").c_str());
+        if (obliYan)
+            printPrimitiveSummaryForMode(*obliYan, (std::string(prefix) + "  ").c_str());
         std::cout << prefix << "Primitive by stage:\n";
         if (ours)
             printPrimitivePhaseSummaryForMode(*ours, (std::string(prefix) + "  ").c_str());
-        if (obliv)
-            printPrimitivePhaseSummaryForMode(*obliv, (std::string(prefix) + "  ").c_str());
-        if (relaxed)
-            printPrimitivePhaseSummaryForMode(*relaxed, (std::string(prefix) + "  ").c_str());
+        if (parYan)
+            printPrimitivePhaseSummaryForMode(*parYan, (std::string(prefix) + "  ").c_str());
+        if (obliYan)
+            printPrimitivePhaseSummaryForMode(*obliYan, (std::string(prefix) + "  ").c_str());
     }
 }
 
@@ -1100,9 +1100,9 @@ int main(int argc, char **argv)
         if (std::strcmp(argv[i], "-JFYan") == 0)
             mode = ModeOurs;
         else if (std::strcmp(argv[i], "-ParYan") == 0)
-            mode = ModeObliViator;
+            mode = ModeParYan;
         else if (std::strcmp(argv[i], "-ObliYan") == 0)
-            mode = ModeRelaxed;
+            mode = ModeObliYan;
         else if (std::strcmp(argv[i], "--all") == 0)
             runAll = true;
         else if (std::strcmp(argv[i], "--bench-only") == 0 || std::strcmp(argv[i], "--no-result") == 0)
@@ -1239,7 +1239,7 @@ int main(int argc, char **argv)
 
     std::vector<int> modes;
     if (runAll)
-        modes = {ModeOurs, ModeObliViator, ModeRelaxed};
+        modes = {ModeOurs, ModeParYan, ModeObliYan};
     else
         modes = {mode};
 

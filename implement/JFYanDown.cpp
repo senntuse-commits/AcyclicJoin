@@ -1,4 +1,4 @@
-#include "../include/TopDown.h"
+#include "../include/JFYanDown.h"
 #include "../include/Aggtree.h"
 #include "../include/ORcompact.h"
 #include "../include/DupAggtree.h"
@@ -6,7 +6,7 @@
 #include "../include/PrimitiveProfile.h"
 #include "../include/sgx_profile.h"
 
-// TopDown.cpp materializes filtered acyclic join results from the root toward leaves.
+// JFYanDown.cpp materializes filtered acyclic join results from the root toward leaves.
 // The implementation keeps profiling hooks close to each primitive so enclave
 // timing output can explain where top-down expansion and compaction time is spent.
 #ifndef SGX_ENCLAVE_BUILD
@@ -22,14 +22,14 @@
 using namespace std::chrono;
 #endif
 
-static double g_lastTopDownParallelMs = 0.0;
+static double g_lastJFYanDownParallelMs = 0.0;
 
-double getLastTopDownParallelMs()
+double getLastJFYanDownParallelMs()
 {
-    return g_lastTopDownParallelMs;
+    return g_lastJFYanDownParallelMs;
 }
 
-static void sgxTopDownLog(const char *fmt, int a, int b, double x, double y, double z)
+static void sgxJFYanDownLog(const char *fmt, int a, int b, double x, double y, double z)
 {
     if (!sgxProfileEnabled())
         return;
@@ -38,7 +38,7 @@ static void sgxTopDownLog(const char *fmt, int a, int b, double x, double y, dou
     sgxProfilePrint(buf);
 }
 
-static int chooseTopDownWorkerCount(const vector<Table> &tables,
+static int chooseJFYanDownWorkerCount(const vector<Table> &tables,
                                     const vector<int> &children,
                                     int parentRows,
                                     int maxThreads)
@@ -788,10 +788,10 @@ static FlatTable sortTempResultByPFlat(FlatTable flat, int keyCols, int sortThre
     return flat;
 }
 
-Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
+Table JFYanDown(vector<Table> &tables, const vector<int> &parent, int root,
               const vector<int> &joinColInParent, const vector<int> &joinColInChild, const vector<int> &tableKeys)
 {
-    g_lastTopDownParallelMs = 0.0;
+    g_lastJFYanDownParallelMs = 0.0;
     int n = tables.size();
     vector<FlatTable> tempResult;
     tempResult.resize(tables.size());
@@ -832,7 +832,7 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
             continue;
         double sgxNodeStart = sgxProfileNowMs();
 
-        // printf("================[topDown] parent node=%d  rows=%d================\n", p, (int)tables[p].size());
+        // printf("================[JFYanDown] parent node=%d  rows=%d================\n", p, (int)tables[p].size());
 
         // // print parent table
         // cout << "Parent table:\n";
@@ -948,7 +948,7 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
         int childCount = (int)children[p].size();
         int edgeMaxThreads = omp_get_max_threads();
 #ifdef SGX_ENCLAVE_BUILD
-        int edgeWorkers = chooseTopDownWorkerCount(tables, children[p], parentRows, edgeMaxThreads);
+        int edgeWorkers = chooseJFYanDownWorkerCount(tables, children[p], parentRows, edgeMaxThreads);
         int edgeInnerThreads = splitInnerThreadCount(edgeMaxThreads, edgeWorkers);
 #else
         int edgeMaxWorkers = std::max(1, edgeMaxThreads / 2);
@@ -959,7 +959,7 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
         {
             char buf[320];
             snprintf(buf, sizeof(buf),
-                     "  [TopDown node p=%d] sortState=%.2f ms idx=%.2f ms suffixPc=%.2f ms rows=%d children=%d edgeWorkers=%d innerThreads=%d",
+                     "  [JFYanDown node p=%d] sortState=%.2f ms idx=%.2f ms suffixPc=%.2f ms rows=%d children=%d edgeWorkers=%d innerThreads=%d",
                      p,
                      sgxAfterSortState - sgxNodeStart,
                      sgxAfterIdx - sgxAfterSortState,
@@ -998,12 +998,12 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
             {
                 char buf[256];
                 snprintf(buf, sizeof(buf),
-                         "  [TopDown edge p=%d c=%d] getRank=%.2f ms subProcess=%.2f ms total=%.2f ms",
+                         "  [JFYanDown edge p=%d c=%d] getRank=%.2f ms subProcess=%.2f ms total=%.2f ms",
                          p, c,
                          sgxAfterRank - sgxEdgeStart,
                          sgxAfterSub - sgxAfterRank,
                          sgxAfterSub - sgxEdgeStart);
-#pragma omp critical(TopDownEdgeProfile)
+#pragma omp critical(JFYanDownEdgeProfile)
                 sgxProfilePrint(buf);
             }
 #endif
@@ -1101,9 +1101,9 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
         {
             char buf[192];
             snprintf(buf, sizeof(buf),
-                     "  [TopDown finalSort c=%d] rows=%d ms=%.2f",
+                     "  [JFYanDown finalSort c=%d] rows=%d ms=%.2f",
                      c, tempResult[c].rows, sgxNodeSortEnd - sgxNodeSortStart);
-#pragma omp critical(TopDownFinalSortProfile)
+#pragma omp critical(JFYanDownFinalSortProfile)
             sgxProfilePrint(buf);
         }
 #endif
@@ -1154,16 +1154,16 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
     double finalMaterializeMs = duration<double, milli>(_materialize_t1 - _materialize_t0).count();
     double finalSortWallMs = duration<double, milli>(_final_sort_t1 - _final_sort_t0).count();
     double finalStageCriticalMs = finalSortCriticalMs + finalMaterializeMs;
-    g_lastTopDownParallelMs = assignmentCriticalMs + finalStageCriticalMs;
-    printf("  [TopDown parallel-estimate] assignmentCritical=%.2f ms  finalSortCritical=%.2f ms  finalSortWall=%.2f ms  finalMaterialize=%.2f ms  total=%.2f ms\n",
-           assignmentCriticalMs, finalSortCriticalMs, finalSortWallMs, finalMaterializeMs, g_lastTopDownParallelMs);
+    g_lastJFYanDownParallelMs = assignmentCriticalMs + finalStageCriticalMs;
+    printf("  [JFYanDown parallel-estimate] assignmentCritical=%.2f ms  finalSortCritical=%.2f ms  finalSortWall=%.2f ms  finalMaterialize=%.2f ms  total=%.2f ms\n",
+           assignmentCriticalMs, finalSortCriticalMs, finalSortWallMs, finalMaterializeMs, g_lastJFYanDownParallelMs);
 #endif
     double sgxMaterializeEnd = sgxProfileNowMs();
     if (sgxProfileEnabled())
     {
         char buf[256];
         snprintf(buf, sizeof(buf),
-                 "  [TopDown final] sortTotal=%.2f ms materialize=%.2f ms rows=%d cols=%d sortWorkers=%d innerThreads=%d",
+                 "  [JFYanDown final] sortTotal=%.2f ms materialize=%.2f ms rows=%d cols=%d sortWorkers=%d innerThreads=%d",
                  sgxFinalSortEnd - sgxFinalSortStart,
                  sgxMaterializeEnd - sgxMaterializeStart,
                  numRows,
@@ -1175,9 +1175,9 @@ Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
     return result;
 #else
 #ifndef SGX_ENCLAVE_BUILD
-    g_lastTopDownParallelMs = assignmentCriticalMs;
-    printf("  [TopDown parallel-estimate] assignmentCritical=%.2f ms  final stage skipped  total=%.2f ms\n",
-           assignmentCriticalMs, g_lastTopDownParallelMs);
+    g_lastJFYanDownParallelMs = assignmentCriticalMs;
+    printf("  [JFYanDown parallel-estimate] assignmentCritical=%.2f ms  final stage skipped  total=%.2f ms\n",
+           assignmentCriticalMs, g_lastJFYanDownParallelMs);
 #endif
     return tables[root];
 #endif
@@ -1383,7 +1383,7 @@ static FlatTable subProcessFlat(const Table &parent, int joinColInParent, Table 
     {
         char buf[512];
         snprintf(buf, sizeof(buf),
-                 "    [TopDown subProcess c=%d] buildM=%.2f ms sort=%.2f ms mark=%.2f ms slim=%.2f ms dup=%.2f ms compact=%.2f ms buildResult=%.2f ms total=%.2f ms rows=%d",
+                 "    [JFYanDown subProcess c=%d] buildM=%.2f ms sort=%.2f ms mark=%.2f ms slim=%.2f ms dup=%.2f ms compact=%.2f ms buildResult=%.2f ms total=%.2f ms rows=%d",
                  c,
                  sgxSpT1 - sgxSpT0,
                  sgxSpT2 - sgxSpT1,
@@ -1435,7 +1435,7 @@ vector<int> getRankValues(Table &table, int joinCols, bool isLeafNode, int sortT
     {
         char buf[256];
         snprintf(buf, sizeof(buf),
-                 "    [TopDown getRank] rows=%d sort=%.2f ms agg=%.2f ms append=0.00 ms total=%.2f ms",
+                 "    [JFYanDown getRank] rows=%d sort=%.2f ms agg=%.2f ms append=0.00 ms total=%.2f ms",
                  (int)table.size(),
                  sgxAfterSort - sgxRankStart,
                  sgxAfterAgg - sgxAfterSort,

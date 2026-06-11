@@ -10,9 +10,9 @@
 
 #include "BottomupSemiJoin.h"
 #include "PrimitiveProfile.h"
-#include "RelaxedJoin.h"
-#include "TRA.h"
-#include "TopDown.h"
+#include "ObliYan.h"
+#include "ParYan.h"
+#include "JFYanDown.h"
 #include "sgx_profile.h"
 
 using namespace std;
@@ -25,8 +25,8 @@ namespace
 enum JoinMode
 {
     ModeOurs = 0,
-    ModeObliViator = 1,
-    ModeRelaxed = 2
+    ModeParYan = 1,
+    ModeObliYan = 2
 };
 
 enum ProfileStage
@@ -43,17 +43,17 @@ enum ProfileStage
     StageDoProtectedRows = 9,
     StageOursUpFilter = 10,
     StageOursRootExpand = 11,
-    StageOursTopDown = 12,
-    StageOblivUpFilter = 13,
-    StageOblivDownFilter = 14,
-    StageOblivJoin = 15,
+    StageJFYanDown = 12,
+    StageParYanUpFilter = 13,
+    StageParYanDownFilter = 14,
+    StageParYanJoin = 15,
     StagePrimitiveSort = 16,
     StagePrimitiveExpand = 17,
     StagePrimitiveCompact = 18,
     StagePrimitiveAggtree = 19,
-    StageRelaxedUpFilter = 20,
-    StageRelaxedDownFilter = 21,
-    StageRelaxedJoin = 22,
+    StageObliYanUpFilter = 20,
+    StageObliYanDownFilter = 21,
+    StageObliYanJoin = 22,
     StagePrimitivePhaseBase = 23,
     PrimitiveKindCount = 4,
     PrimitivePhaseCount = 9,
@@ -101,7 +101,7 @@ void configureThreads(int threads)
     omp_set_dynamic(0);
     if (threads > 0)
         omp_set_num_threads(threads);
-    // TopDown uses bounded outer task parallelism plus inner parallel sorts.
+    // JFYanDown uses bounded outer task parallelism plus inner parallel sorts.
     // Enable nested teams explicitly; otherwise SGX OpenMP can serialize the
     // inner sort regions, making 32/64 threads look like one thread.
     omp_set_max_active_levels(2);
@@ -346,28 +346,28 @@ sgx_status_t runJoin(int threads,
         setPrimitiveProfilePhase(PrimitivePhaseOursUpFilter);
         working[root] = bottomUpSemiJoin(working, parentVec, root, joinParentVec, joinChildVec, materializedOutSize);
         setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
-        setPrimitiveProfilePhase(PrimitivePhaseOursTopDown);
+        setPrimitiveProfilePhase(PrimitivePhaseJFYanDown);
         if (!working[root].empty())
-            joinResult = topDown(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
+            joinResult = JFYanDown(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
         setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
         logLine("Acyclic join completed.");
     }
-    else if (mode == ModeObliViator)
+    else if (mode == ModeParYan)
     {
-        logLine("Starting acyclic join: TwoPhaseFilter + ObliViator");
+        logLine("Starting acyclic join: ParYanFilter + ParYanJoin");
         vector<Table> working = std::move(tables);
-        auto filtered = TwoPhaseFilter(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
+        auto filtered = ParYanFilter(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
         int outSize = std::max(materializedOutSize, (int)std::max<long long>(filtered.second, 1));
-        setPrimitiveProfilePhase(PrimitivePhaseOblivJoin);
-        joinResult = JoinByObliViator(filtered.first, parentVec, root, joinParentVec, joinChildVec, tableKeysVec, outSize);
+        setPrimitiveProfilePhase(PrimitivePhaseParYanJoin);
+        joinResult = ParYanJoin(filtered.first, parentVec, root, joinParentVec, joinChildVec, tableKeysVec, outSize);
         setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
-        logLine("ObliViator acyclic join completed.");
+        logLine("ParYan acyclic join completed.");
     }
-    else if (mode == ModeRelaxed)
+    else if (mode == ModeObliYan)
     {
-        logLine("Starting acyclic join: RelaxedJoin");
-        joinResult = RelaxedJoin(tables, parentVec, root, joinParentVec, joinChildVec, materializedOutSize);
-        logLine("RelaxedJoin completed.");
+        logLine("Starting acyclic join: ObliYan");
+        joinResult = ObliYan(tables, parentVec, root, joinParentVec, joinChildVec, materializedOutSize);
+        logLine("ObliYan completed.");
     }
     else
     {
@@ -504,50 +504,50 @@ sgx_status_t runJoinProfile(int threads,
         setStage(stageMs, stageCount, StageOursUpFilter, bottomUpTotal - rootExpand);
         setStage(stageMs, stageCount, StageOursRootExpand, rootExpand);
 
-        setPrimitiveProfilePhase(PrimitivePhaseOursTopDown);
+        setPrimitiveProfilePhase(PrimitivePhaseJFYanDown);
         if (!working[root].empty())
-            joinResult = topDown(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
+            joinResult = JFYanDown(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
         setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
         double t5 = nowMs();
         setStage(stageMs, stageCount, StageCore2, t5 - t4);
-        setStage(stageMs, stageCount, StageOursTopDown, t5 - t4);
+        setStage(stageMs, stageCount, StageJFYanDown, t5 - t4);
         logLine("Acyclic join completed.");
     }
-    else if (mode == ModeObliViator)
+    else if (mode == ModeParYan)
     {
-        logLine("Starting acyclic join: TwoPhaseFilter + ObliViator");
+        logLine("Starting acyclic join: ParYanFilter + ParYanJoin");
         vector<Table> working = std::move(tables);
         double t3 = afterPaddingStats;
         setStage(stageMs, stageCount, StageSetup, 0.0);
 
-        auto filtered = TwoPhaseFilter(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
+        auto filtered = ParYanFilter(working, parentVec, root, joinParentVec, joinChildVec, tableKeysVec);
         double t4 = nowMs();
         setStage(stageMs, stageCount, StageCore1, t4 - t3);
-        setStage(stageMs, stageCount, StageOblivUpFilter, getLastTwoPhaseFilterUpMs());
-        setStage(stageMs, stageCount, StageOblivDownFilter, getLastTwoPhaseFilterDownMs());
+        setStage(stageMs, stageCount, StageParYanUpFilter, getLastParYanUpFilterMs());
+        setStage(stageMs, stageCount, StageParYanDownFilter, getLastParYanDownFilterMs());
 
         int outSize = std::max(materializedOutSize, (int)std::max<long long>(filtered.second, 1));
-        setPrimitiveProfilePhase(PrimitivePhaseOblivJoin);
-        joinResult = JoinByObliViator(filtered.first, parentVec, root, joinParentVec, joinChildVec, tableKeysVec, outSize);
+        setPrimitiveProfilePhase(PrimitivePhaseParYanJoin);
+        joinResult = ParYanJoin(filtered.first, parentVec, root, joinParentVec, joinChildVec, tableKeysVec, outSize);
         setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
         double t5 = nowMs();
         setStage(stageMs, stageCount, StageCore2, t5 - t4);
-        setStage(stageMs, stageCount, StageOblivJoin, t5 - t4);
-        logLine("ObliViator acyclic join completed.");
+        setStage(stageMs, stageCount, StageParYanJoin, t5 - t4);
+        logLine("ParYan acyclic join completed.");
     }
-    else if (mode == ModeRelaxed)
+    else if (mode == ModeObliYan)
     {
-        logLine("Starting acyclic join: RelaxedJoin");
+        logLine("Starting acyclic join: ObliYan");
         double t3 = afterPaddingStats;
         setStage(stageMs, stageCount, StageSetup, 0.0);
 
-        joinResult = RelaxedJoin(tables, parentVec, root, joinParentVec, joinChildVec, materializedOutSize);
+        joinResult = ObliYan(tables, parentVec, root, joinParentVec, joinChildVec, materializedOutSize);
         double t4 = nowMs();
         setStage(stageMs, stageCount, StageCore1, t4 - t3);
-        setStage(stageMs, stageCount, StageRelaxedUpFilter, getLastRelaxedUpFilterMs());
-        setStage(stageMs, stageCount, StageRelaxedDownFilter, getLastRelaxedDownFilterMs());
-        setStage(stageMs, stageCount, StageRelaxedJoin, getLastRelaxedJoinMs());
-        logLine("RelaxedJoin completed.");
+        setStage(stageMs, stageCount, StageObliYanUpFilter, getLastObliYanUpFilterMs());
+        setStage(stageMs, stageCount, StageObliYanDownFilter, getLastObliYanDownFilterMs());
+        setStage(stageMs, stageCount, StageObliYanJoin, getLastObliYanJoinMs());
+        logLine("ObliYan completed.");
     }
     else
     {

@@ -1,0 +1,20 @@
+^D:\PAPERTEST\ACYCLICJOIN\BUILD_RENAME_CHECK\CMAKEFILES\1EEC25CD90317672377EED7F7C59EA9C\ENCLAVE_U.C.RULE
+setlocal
+\opt\intel\sgxsdk\bin\x64\sgx_edger8r --untrusted D:/PaperTest/AcyclicJoin/Enclave/Enclave.edl --search-path /opt/intel/sgxsdk/include --search-path D:/PaperTest/AcyclicJoin/Enclave --untrusted-dir D:/PaperTest/AcyclicJoin/build_rename_check/generated/App
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
+^D:\PAPERTEST\ACYCLICJOIN\APP\CMAKELISTS.TXT
+setlocal
+D:\Scoop\apps\cmake\3.31.5\bin\cmake.exe -SD:/PaperTest/AcyclicJoin -BD:/PaperTest/AcyclicJoin/build_rename_check --check-stamp-file D:/PaperTest/AcyclicJoin/build_rename_check/App/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

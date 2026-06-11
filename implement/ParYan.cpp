@@ -1,4 +1,4 @@
-﻿#include "../include/TRA.h"
+#include "../include/ParYan.h"
 #include "../include/ParallelSemiJoin.h"
 #include "../include/ObliViatorJoin.h"
 #include "../include/PrimitiveProfile.h"
@@ -18,44 +18,44 @@
 using namespace std::chrono;
 #endif
 
-static double g_lastObliViatorJoinParallelMs = 0.0;
-static double g_lastTwoPhaseFilterParallelMs = 0.0;
-static double g_lastTwoPhaseFilterUpMs = 0.0;
-static double g_lastTwoPhaseFilterMaterializeMs = 0.0;
-static double g_lastTwoPhaseFilterDownMs = 0.0;
+static double g_lastParYanJoinParallelMs = 0.0;
+static double g_lastParYanFilterParallelMs = 0.0;
+static double g_lastParYanUpFilterMs = 0.0;
+static double g_lastParYanMaterializeMs = 0.0;
+static double g_lastParYanDownFilterMs = 0.0;
 
-double getLastObliViatorJoinParallelMs()
+double getLastParYanJoinParallelMs()
 {
-    return g_lastObliViatorJoinParallelMs;
+    return g_lastParYanJoinParallelMs;
 }
 
-double getLastTwoPhaseFilterParallelMs()
+double getLastParYanFilterParallelMs()
 {
-    return g_lastTwoPhaseFilterParallelMs;
+    return g_lastParYanFilterParallelMs;
 }
 
-double getLastTwoPhaseFilterUpMs()
+double getLastParYanUpFilterMs()
 {
-    return g_lastTwoPhaseFilterUpMs;
+    return g_lastParYanUpFilterMs;
 }
 
-double getLastTwoPhaseFilterMaterializeMs()
+double getLastParYanMaterializeMs()
 {
-    return g_lastTwoPhaseFilterMaterializeMs;
+    return g_lastParYanMaterializeMs;
 }
 
-double getLastTwoPhaseFilterDownMs()
+double getLastParYanDownFilterMs()
 {
-    return g_lastTwoPhaseFilterDownMs;
+    return g_lastParYanDownFilterMs;
 }
 
-pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vector<int> &parent, int root,
+pair<vector<Table>, long long> ParYanFilter(vector<Table> &tables, const vector<int> &parent, int root,
                                               const vector<int> &joinColInParent, const vector<int> &joinColInChild, const vector<int> &tableKeys)
 {
-    g_lastTwoPhaseFilterParallelMs = 0.0;
-    g_lastTwoPhaseFilterUpMs = 0.0;
-    g_lastTwoPhaseFilterMaterializeMs = 0.0;
-    g_lastTwoPhaseFilterDownMs = 0.0;
+    g_lastParYanFilterParallelMs = 0.0;
+    g_lastParYanUpFilterMs = 0.0;
+    g_lastParYanMaterializeMs = 0.0;
+    g_lastParYanDownFilterMs = 0.0;
     int n = tables.size();
 
     // Build children list from parent array
@@ -89,7 +89,7 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
 
     long long total_delta = 0;
 #ifndef SGX_ENCLAVE_BUILD
-    vector<double> bottomUpNodeMs(n, 0.0), topDownNodeMs(n, 0.0);
+    vector<double> bottomUpNodeMs(n, 0.0), downNodeMs(n, 0.0);
 #endif
 
     auto bottomUpNode = [&](int p, bool parallelChildren)
@@ -149,7 +149,7 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
 #endif
     };
 
-    setPrimitiveProfilePhase(PrimitivePhaseOblivUpFilter);
+    setPrimitiveProfilePhase(PrimitivePhaseParYanUpFilter);
     double sgxBottomUpStart = sgxProfileNowMs();
     // 1、Bottom-up filter: independent subtrees at the same depth run in parallel.
     for (int d = (int)levels.size() - 1; d >= 0; --d)
@@ -242,12 +242,12 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
     double sgxMaterializeEnd = sgxProfileNowMs();
 
     // 2. Top-down filter: use parent to filter child tuples
-    setPrimitiveProfilePhase(PrimitivePhaseOblivDownFilter);
-    double sgxTopDownStart = sgxProfileNowMs();
-    vector<Table> topDownTables(n);
-    topDownTables[root] = std::move(semiJoinTables[root]);
+    setPrimitiveProfilePhase(PrimitivePhaseParYanDownFilter);
+    double sgxParYanDownStart = sgxProfileNowMs();
+    vector<Table> downTables(n);
+    downTables[root] = std::move(semiJoinTables[root]);
 
-    auto topDownNode = [&](int p, bool parallelChildren)
+    auto downNode = [&](int p, bool parallelChildren)
     {
         if (children[p].empty())
             return;
@@ -266,7 +266,7 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
             {
                 int c = children[p][i];
                 ParallelSemiJoin semiJoin(semiJoinTables[c], joinColInChild[c],
-                                          topDownTables[p], joinColInParent[c], -1);
+                                          downTables[p], joinColInParent[c], -1);
                 semiJoin.executeValueOnly();
                 tdValues[i] = semiJoin.getResultValues();
             }
@@ -277,32 +277,32 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
             {
                 int c = children[p][i];
                 ParallelSemiJoin semiJoin(semiJoinTables[c], joinColInChild[c],
-                                          topDownTables[p], joinColInParent[c], -1);
+                                          downTables[p], joinColInParent[c], -1);
                 semiJoin.executeValueOnly();
                 tdValues[i] = semiJoin.getResultValues();
             }
         }
 
-        // Build topDownTables[c]: keep row if Sc > 0, else zero out
+        // Build downTables[c]: keep row if Sc > 0, else zero out
         for (int i = 0; i < k; i++)
         {
             int c = children[p][i];
             int sz = (int)semiJoinTables[c].size();
             int keyCount = tableKeys[c];
-            topDownTables[c].resize(sz);
+            downTables[c].resize(sz);
 
 #pragma omp parallel for schedule(static)
             for (int j = 0; j < sz; j++)
             {
                 if (tdValues[i][j] == 0)
-                    topDownTables[c][j].assign(keyCount, 0);
+                    downTables[c][j].assign(keyCount, 0);
                 else
-                    topDownTables[c][j] = semiJoinTables[c][j];
+                    downTables[c][j] = semiJoinTables[c][j];
             }
             Table().swap(semiJoinTables[c]);
         }
 #ifndef SGX_ENCLAVE_BUILD
-        topDownNodeMs[p] = duration<double, milli>(high_resolution_clock::now() - nodeStart).count();
+        downNodeMs[p] = duration<double, milli>(high_resolution_clock::now() - nodeStart).count();
 #endif
     };
 
@@ -320,56 +320,56 @@ pair<vector<Table>, long long> TwoPhaseFilter(vector<Table> &tables, const vecto
 
         if ((int)internalNodes.size() == 1)
         {
-            topDownNode(internalNodes[0], false);
+            downNode(internalNodes[0], false);
         }
         else
         {
 #pragma omp parallel for schedule(static)
             for (int i = 0; i < (int)internalNodes.size(); ++i)
-                topDownNode(internalNodes[i], false);
+                downNode(internalNodes[i], false);
         }
     }
-    double sgxTopDownEnd = sgxProfileNowMs();
+    double sgxParYanDownEnd = sgxProfileNowMs();
     setPrimitiveProfilePhase(PrimitivePhaseUnscoped);
 
-    g_lastTwoPhaseFilterUpMs = sgxBottomUpEnd - sgxBottomUpStart;
-    g_lastTwoPhaseFilterMaterializeMs = sgxMaterializeEnd - sgxMaterializeStart;
-    g_lastTwoPhaseFilterDownMs = sgxTopDownEnd - sgxTopDownStart;
-    g_lastTwoPhaseFilterParallelMs = g_lastTwoPhaseFilterUpMs +
-                                     g_lastTwoPhaseFilterMaterializeMs +
-                                     g_lastTwoPhaseFilterDownMs;
+    g_lastParYanUpFilterMs = sgxBottomUpEnd - sgxBottomUpStart;
+    g_lastParYanMaterializeMs = sgxMaterializeEnd - sgxMaterializeStart;
+    g_lastParYanDownFilterMs = sgxParYanDownEnd - sgxParYanDownStart;
+    g_lastParYanFilterParallelMs = g_lastParYanUpFilterMs +
+                                     g_lastParYanMaterializeMs +
+                                     g_lastParYanDownFilterMs;
 
 #ifndef SGX_ENCLAVE_BUILD
-    vector<double> topDownCritical(n, 0.0);
-    topDownCritical[root] = topDownNodeMs[root];
+    vector<double> downCritical(n, 0.0);
+    downCritical[root] = downNodeMs[root];
     for (int u : order)
     {
         for (int c : children[u])
-            topDownCritical[c] = topDownCritical[u] + topDownNodeMs[c];
+            downCritical[c] = downCritical[u] + downNodeMs[c];
     }
-    double topDownPathMs = 0.0;
-    for (double v : topDownCritical)
-        topDownPathMs = max(topDownPathMs, v);
+    double downPathMs = 0.0;
+    for (double v : downCritical)
+        downPathMs = max(downPathMs, v);
 
-    g_lastTwoPhaseFilterUpMs = bottomUpCritical[root];
-    g_lastTwoPhaseFilterMaterializeMs = materializeMs;
-    g_lastTwoPhaseFilterDownMs = topDownPathMs;
-    g_lastTwoPhaseFilterParallelMs = g_lastTwoPhaseFilterUpMs +
-                                     g_lastTwoPhaseFilterMaterializeMs +
-                                     g_lastTwoPhaseFilterDownMs;
-    printf("  [TwoPhaseFilter parallel-estimate] bottomUpCritical=%.2f ms  materialize=%.2f ms  topDownCritical=%.2f ms  total=%.2f ms\n",
-           g_lastTwoPhaseFilterUpMs, g_lastTwoPhaseFilterMaterializeMs,
-           g_lastTwoPhaseFilterDownMs, g_lastTwoPhaseFilterParallelMs);
+    g_lastParYanUpFilterMs = bottomUpCritical[root];
+    g_lastParYanMaterializeMs = materializeMs;
+    g_lastParYanDownFilterMs = downPathMs;
+    g_lastParYanFilterParallelMs = g_lastParYanUpFilterMs +
+                                     g_lastParYanMaterializeMs +
+                                     g_lastParYanDownFilterMs;
+    printf("  [ParYanFilter parallel-estimate] bottomUpCritical=%.2f ms  materialize=%.2f ms  downCritical=%.2f ms  total=%.2f ms\n",
+           g_lastParYanUpFilterMs, g_lastParYanMaterializeMs,
+           g_lastParYanDownFilterMs, g_lastParYanFilterParallelMs);
 
-    cout << "TRA: sum of delta at root = " << total_delta << endl;
+    cout << "ParYan: sum of delta at root = " << total_delta << endl;
 #endif
-    return {topDownTables, total_delta};
+    return {downTables, total_delta};
 }
 
-Table JoinByObliViator(vector<Table> &tables, const vector<int> &parent, int root,
+Table ParYanJoin(vector<Table> &tables, const vector<int> &parent, int root,
                        const vector<int> &joinColInParent, const vector<int> &joinColInChild, const vector<int> &tableKeys, const int out_size)
 {
-    g_lastObliViatorJoinParallelMs = 0.0;
+    g_lastParYanJoinParallelMs = 0.0;
     double sgxJoinStart = sgxProfileNowMs();
     int n = tables.size();
 
@@ -450,7 +450,7 @@ Table JoinByObliViator(vector<Table> &tables, const vector<int> &parent, int roo
             {
                 char buf[320];
                 snprintf(buf, sizeof(buf),
-                         "  [OblivJoin edge p=%d c=%d] inputRows=%d,%d outSize=%d resultRows=%d cols=%d augment=%.2f fillDim=%.2f expand=%.2f align=%.2f result=%.2f",
+                         "  [ParYanJoin edge p=%d c=%d] inputRows=%d,%d outSize=%d resultRows=%d cols=%d augment=%.2f fillDim=%.2f expand=%.2f align=%.2f result=%.2f",
                          p, c, leftInputRows, rightInputRows, out_size,
                          (int)partial[p].size(), partial[p].empty() ? 0 : (int)partial[p][0].size(),
                          joiner.ms_augment, joiner.ms_fillDim, joiner.ms_expand, joiner.ms_align, joiner.ms_result);
@@ -458,9 +458,9 @@ Table JoinByObliViator(vector<Table> &tables, const vector<int> &parent, int roo
             }
 
 #ifndef SGX_ENCLAVE_BUILD
-#pragma omp critical(OblivJoinPrint)
+#pragma omp critical(ParYanJoinPrint)
             {
-            printf("  [OblivJoin p=%d->c=%d] augment=%.1f ms  fillDim=%.1f ms  expand=%.1f ms  align=%.1f ms  result=%.1f ms\n",
+            printf("  [ParYanJoin p=%d->c=%d] augment=%.1f ms  fillDim=%.1f ms  expand=%.1f ms  align=%.1f ms  result=%.1f ms\n",
                    p, c, joiner.ms_augment, joiner.ms_fillDim, joiner.ms_expand, joiner.ms_align, joiner.ms_result);
             }
             localAug += joiner.ms_augment;
@@ -530,7 +530,7 @@ Table JoinByObliViator(vector<Table> &tables, const vector<int> &parent, int roo
         _tot_res += resByNode[u];
     }
 
-    printf("  [OblivJoin TOTAL] augment=%.1f ms  fillDim=%.1f ms  expand=%.1f ms  align=%.1f ms  result=%.1f ms\n",
+    printf("  [ParYanJoin TOTAL] augment=%.1f ms  fillDim=%.1f ms  expand=%.1f ms  align=%.1f ms  result=%.1f ms\n",
            _tot_aug, _tot_fill, _tot_exp, _tot_aln, _tot_res);
 
     vector<double> criticalMs(n, 0.0);
@@ -562,11 +562,11 @@ Table JoinByObliViator(vector<Table> &tables, const vector<int> &parent, int roo
     }
 #ifndef SGX_ENCLAVE_BUILD
     double finalMaterializeMs = duration<double, milli>(high_resolution_clock::now() - finalStart).count();
-    g_lastObliViatorJoinParallelMs = criticalMs[root] + finalMaterializeMs;
-    printf("  [OblivJoin parallel] criticalJoin=%.1f ms  finalMaterialize=%.1f ms  total=%.1f ms\n",
-           criticalMs[root], finalMaterializeMs, g_lastObliViatorJoinParallelMs);
+    g_lastParYanJoinParallelMs = criticalMs[root] + finalMaterializeMs;
+    printf("  [ParYanJoin parallel] criticalJoin=%.1f ms  finalMaterialize=%.1f ms  total=%.1f ms\n",
+           criticalMs[root], finalMaterializeMs, g_lastParYanJoinParallelMs);
 #else
-    g_lastObliViatorJoinParallelMs = sgxProfileNowMs() - sgxJoinStart;
+    g_lastParYanJoinParallelMs = sgxProfileNowMs() - sgxJoinStart;
 #endif
 
     return result;

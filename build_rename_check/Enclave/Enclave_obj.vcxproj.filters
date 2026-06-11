@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\Enclave\Enclave.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\Enclave\sgx_log.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\Aggtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\BitonicSort.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\BottomupSemiJoin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\DupAggtree.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\JFYanDown.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ORcompact.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ObliViatorExpand.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ObliViatorJoin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ObliYan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ParYan.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ParallelBitonicSort.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ParallelOExpand.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\ParallelSemiJoin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\implement\PrimitiveProfile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\PaperTest\AcyclicJoin\Enclave\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{5DEF1FCF-92F0-3038-BBFE-2B58ACD6A31C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

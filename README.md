@@ -1,6 +1,6 @@
 # Parallel Oblivious Acyclic Joins for TEE-based Encrypted Databases
 
-**Paper PDF:** [Parallel_Oblivious_Acyclic_Joins_in_TEE_based_Encrypted_Databases__Full_Version_Submit_.pdf](https://github.com/senntuse-commits/Parallel_Oblivious_Acyclic_Joins_for_TEE-based_Encrypted_Databases/blob/main/Parallel_Oblivious_Acyclic_Joins_in_TEE_based_Encrypted_Databases__Full_Version_Submit_.pdf)
+**Paper PDF:** [Parallel_Oblivious_Acyclic_Joins_in_TEE_based_Encrypted_Databases__Full_Version_Submit_.pdf](https://github.com/senntuse-commits/Parallel_Oblivious_Acyclic_Joins_for_TEE-based_Encrypted_Databases/blob/main/Parallel_Oblivious_Acyclic_Joins_for_TEE_based_Encrypted_Databases__Full_Version.pdf)
 
 This repository contains an Intel SGX benchmark harness for acyclic join
 algorithms over projected TPC-DS/TPC-H join trees. The executable is built as an
@@ -10,14 +10,13 @@ breakdowns, and optional differential-oblivious padding statistics.
 
 ## Algorithm Names
 
-The command-line flags use the internal implementation names. In experiment
-reports, use the following paper names:
+The command-line flags use the paper/report names directly:
 
 | CLI flag | Internal label | Paper/report name | High-level role |
 |---|---|---|---|
 | `-JFYan` | `JFYan` | `JFYan` | Bottom-up filtering plus top-down materialization. |
-| `-ParYan` | `ParYan` | `ParYan` | Two-phase filtering plus ObliViator-style join. |
-| `-ObliYan` | `ObliYan` | `ObliYan` | Relaxed oblivious join baseline. |
+| `-ParYan` | `ParYan` | `ParYan` | Two-phase filtering plus ParYan join materialization. |
+| `-ObliYan` | `ObliYan` | `ObliYan` | ObliYan join baseline. |
 | `--all` | all modes | all three | Runs `JFYan`, `ParYan`, and `ObliYan` in sequence. |
 
 ## Source Attribution

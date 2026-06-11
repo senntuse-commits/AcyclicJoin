@@ -6,10 +6,10 @@
 using namespace std;
 using Table = vector<vector<int>>;
 
-Table topDown(vector<Table> &tables, const vector<int> &parent, int root,
+Table JFYanDown(vector<Table> &tables, const vector<int> &parent, int root,
               const vector<int> &joinColInParent, const vector<int> &joinColInChild, const vector<int> &tableKeys);
 
-double getLastTopDownParallelMs();
+double getLastJFYanDownParallelMs();
 
 void getRank(Table &table, int joinCols, bool isLeafNode);
 vector<int> getRankValues(Table &table, int joinCols, bool isLeafNode, int sortThreads = 0);

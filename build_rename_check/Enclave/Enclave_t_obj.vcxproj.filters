@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="D:\PaperTest\AcyclicJoin\build_rename_check\generated\Enclave\Enclave_t.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="D:\PaperTest\AcyclicJoin\build_rename_check\CMakeFiles\3ab1f8be52c70c1757b23cbf10b8322a\Enclave_t.c.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="D:\PaperTest\AcyclicJoin\Enclave\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{8F4B7820-FF04-349A-99A8-C98FB68929A6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{5DEF1FCF-92F0-3038-BBFE-2B58ACD6A31C}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

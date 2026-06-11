@@ -20,13 +20,13 @@ enum PrimitiveProfilePhase
     PrimitivePhaseUnscoped = 0,
     PrimitivePhaseOursUpFilter = 1,
     PrimitivePhaseOursRootExpand = 2,
-    PrimitivePhaseOursTopDown = 3,
-    PrimitivePhaseOblivUpFilter = 4,
-    PrimitivePhaseOblivDownFilter = 5,
-    PrimitivePhaseOblivJoin = 6,
-    PrimitivePhaseRelaxedUpFilter = 7,
-    PrimitivePhaseRelaxedDownFilter = 8,
-    PrimitivePhaseRelaxedJoin = 9,
+    PrimitivePhaseJFYanDown = 3,
+    PrimitivePhaseParYanUpFilter = 4,
+    PrimitivePhaseParYanDownFilter = 5,
+    PrimitivePhaseParYanJoin = 6,
+    PrimitivePhaseObliYanUpFilter = 7,
+    PrimitivePhaseObliYanDownFilter = 8,
+    PrimitivePhaseObliYanJoin = 9,
     PrimitiveProfilePhaseCount = 10
 };
 
