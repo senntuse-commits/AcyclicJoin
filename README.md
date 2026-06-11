@@ -1,6 +1,6 @@
 # Parallel Oblivious Acyclic Joins for TEE-based Encrypted Databases
 
-**Paper PDF:** [Parallel_Oblivious_Acyclic_Joins_in_TEE_based_Encrypted_Databases__Full_Version_Submit_.pdf](https://github.com/senntuse-commits/Parallel_Oblivious_Acyclic_Joins_for_TEE-based_Encrypted_Databases/blob/main/Parallel_Oblivious_Acyclic_Joins_for_TEE_based_Encrypted_Databases__Full_Version.pdf)
+**Paper PDF:** [Parallel_Oblivious_Acyclic_Joins_in_TEE_based_Encrypted_Databases__Full_Version.pdf](https://github.com/senntuse-commits/Parallel_Oblivious_Acyclic_Joins_for_TEE-based_Encrypted_Databases/blob/main/Parallel_Oblivious_Acyclic_Joins_for_TEE_based_Encrypted_Databases__Full_Version.pdf)
 
 This repository contains an Intel SGX benchmark harness for acyclic join
 algorithms over projected TPC-DS/TPC-H join trees. The executable is built as an
